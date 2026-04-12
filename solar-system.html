@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>태양계 형성 과정 시뮬레이션</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000002;
+            color: #ffffff;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            overflow: hidden;
+            /* 전체 화면 선택 방지 (드래그 시 텍스트 파랗게 칠해지는 것 방지) */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #0a0500 0%, #000000 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI 패널 공통 스타일 */
+        #ui-layer {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 10;
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(255, 150, 50, 0.4);
+            border-radius: 12px;
+            padding: 24px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+            pointer-events: auto;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        /* --- 상단 드래그 핸들 및 조절 버튼 --- */
+        #drag-handle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move; 
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 150, 50, 0.3);
+        }
+
+        #drag-handle h1 {
+            margin: 0;
+            font-size: 20px;
+            color: #ffaa55;
+            text-shadow: 0 0 10px rgba(255, 170, 85, 0.5);
+            letter-spacing: -0.5px;
+            pointer-events: none; 
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .ctrl-btn {
+            cursor: pointer;
+            font-size: 12px;
+            color: #ccc;
+            background: rgba(255,255,255,0.1);
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 150, 50, 0.8);
+            color: white;
+        }
+
+        /* --- 텍스트 및 버튼 레이아웃 --- */
+        #description {
+            font-size: 14.5px;
+            line-height: 1.6;
+            color: #eaeaea;
+            margin-bottom: 24px;
+            min-height: 110px;
+            transition: opacity 0.5s;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stage-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        button {
+            padding: 12px;
+            background: rgba(80, 40, 20, 0.5);
+            color: #d0d0d0;
+            border: 1px solid rgba(255, 150, 50, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(120, 60, 30, 0.8);
+            color: white;
+            border-color: rgba(255, 150, 50, 0.8);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #d35400 0%, #e67e22 50%, #f39c12 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 0 15px rgba(255, 150, 50, 0.6);
+        }
+
+        #start-restart-btn {
+            background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+            color: white;
+            border: none;
+            font-size: 16px;
+            padding: 14px;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        #start-restart-btn:hover {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            filter: brightness(1.1);
+        }
+
+        /* 텍스트 토글용 */
+        .short-text { display: none; }
+
+        /* =========================================
+           UI 상태 변화 (기본 Full / 최소화 Min / 접기 Folded)
+           ========================================= */
+        
+        /* 1. 기본 (Full) */
+        .state-full { width: 420px; }
+
+        /* 2. 버튼 축소 (Min) */
+        .state-min { width: 420px; }
+        .state-min #description { min-height: auto; }
+        .state-min .full-text { display: none; }
+        .state-min .short-text { display: inline-block; font-size: 18px; }
+        
+        .state-min .btn-group {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+        .state-min .stage-btns {
+            display: flex;
+            gap: 8px;
+        }
+        .state-min #start-restart-btn, .state-min .stage-btn {
+            width: 44px; height: 44px; padding: 0; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* 3. 완전 접기 (Folded) */
+        .state-folded { width: 280px; }
+        .state-folded #ui-content { display: none; }
+        .state-folded #drag-handle { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+    
+    <div id="ui-layer" class="state-full">
+        <div id="drag-handle" title="클릭 후 드래그하여 이동하세요">
+            <h1>태양계와 지구의 형성</h1>
+            <div class="window-controls">
+                <span class="ctrl-btn fold-btn" title="완전히 접기">➖</span>
+                <span class="ctrl-btn min-btn" title="버튼 최소화">🗗</span>
+                <span class="ctrl-btn full-btn" title="설명 펼치기">🗔</span>
+            </div>
+        </div>
+
+        <div id="ui-content">
+            <div id="description">교과서 시각자료에 맞춘 태양계 형성 시뮬레이션입니다.<br>버튼을 눌러 시작하세요.</div>
+            
+            <div class="btn-group">
+                <button id="start-restart-btn">
+                    <span class="full-text">▶ 시뮬레이션 시작</span>
+                    <span class="short-text">▶</span>
+                </button>
+                
+                <div id="stage-controls" class="stage-btns hidden">
+                    <button class="stage-btn" data-stage="1">
+                        <span class="full-text">1. 태양계 성운 형성</span>
+                        <span class="short-text">1</span>
+                    </button>
+                    <button class="stage-btn" data-stage="2">
+                        <span class="full-text">2. 원시 태양과 원시 원반 형성</span>
+                        <span class="short-text">2</span>
+                    </button>
+                    <button class="stage-btn" data-stage="3">
+                        <span class="full-text">3. 미행성체 형성</span>
+                        <span class="short-text">3</span>
+                    </button>
+                    <button class="stage-btn" data-stage="4">
+                        <span class="full-text">4. 원시 행성 형성</span>
+                        <span class="short-text">4</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // UI 드래그 앤 드롭 및 모드 전환 로직
+    // ==========================================
+    const uiLayer = document.getElementById('ui-layer');
+    const dragHandle = document.getElementById('drag-handle');
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    const dragStart = (e) => {
+        if (e.target.closest('.window-controls')) return;
+        isDragging = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startX = clientX;
+        startY = clientY;
+        initialLeft = uiLayer.offsetLeft;
+        initialTop = uiLayer.offsetTop;
+        uiLayer.style.transition = 'none';
+    };
+
+    const dragMove = (e) => {
+        if (!isDragging) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - uiLayer.offsetWidth));
+        newTop = Math.max(0, Math.min(newTop, window.innerHeight - uiLayer.offsetHeight));
+        uiLayer.style.left = `${newLeft}px`;
+        uiLayer.style.top = `${newTop}px`;
+    };
+
+    const dragEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        uiLayer.style.transition = 'width 0.3s, background-color 0.3s';
+    };
+
+    dragHandle.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', dragEnd);
+    dragHandle.addEventListener('touchstart', dragStart, {passive: false});
+    document.addEventListener('touchmove', dragMove, {passive: false});
+    document.addEventListener('touchend', dragEnd);
+
+    document.querySelector('.fold-btn').addEventListener('click', () => uiLayer.className = 'state-folded');
+    document.querySelector('.min-btn').addEventListener('click', () => uiLayer.className = 'state-min');
+    document.querySelector('.full-btn').addEventListener('click', () => uiLayer.className = 'state-full');
+
+    // ==========================================
+    // 시뮬레이션 애니메이션 로직
+    // ==========================================
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const descEl = document.getElementById('description');
+    const mainBtn = document.getElementById('start-restart-btn');
+    const stageControls = document.getElementById('stage-controls');
+    const stageBtns = document.querySelectorAll('.stage-btn');
+
+    let width, height;
+    let particles = [];
+    let planets = [];
+    let stars = [];
+    let stage = 0; 
+    let timer = 0;
+    let animFrame;
+    let isRunning = false;
+
+    const planetOrbits = [
+        { distance: 100, color: '#b5a79c', finalSize: 4.5, speed: 0.02 },     
+        { distance: 170, color: '#e8c99b', finalSize: 7.5, speed: 0.015 }, 
+        { distance: 250, color: '#4b9ff3', finalSize: 8, speed: 0.012 },   
+        { distance: 330, color: '#e27b58', finalSize: 6, speed: 0.01 },  
+        { distance: 480, color: '#cda278', finalSize: 18, speed: 0.006 },  
+        { distance: 630, color: '#e5d7ad', finalSize: 15, speed: 0.004 }   
+    ];
+
+    const stageDescriptions = [
+        "대기 중입니다.",
+        "<b style='color:#ffaa55'>1단계: 태양계 성운 형성</b><br>초신성 폭발로 거대한 성운의 밀도가 불균형해지고, 밀도가 높은 부분을 중심으로 수축하여 태양계 성운이 형성되었다. </b><br> 태양계 성운이 중력에 의해 수축하면서 회전하였다.",
+        "<b style='color:#f39c12'>2단계: 원시 태양과 원시 원반 형성</b><br>태양계 성운 중심부의 밀도와 온도가 높아져 중심부에 원시 태양이 형성되었다. 성운의 회전 속도가 빨라지면서 원시 태양 주변부의 물질이 퍼져 나가 꽉 찬 원시 원반을 형성하였다. 원시 태양과 원시 원반이 회전하는 방향은 같다.",
+        "<b style='color:#f1c40f'>3단계: 미행성체 형성</b><br>원시 원반에 여러 개의 뚜렷한 빈 공간(간극)과 고리가 생기고, 고리에 있던 여러 물질들이 뭉쳐 수많은 미행성체를 형성하며 궤도를 돌기 시작하였다.",
+        "<b style='color:#55ffaa'>4단계: 원시 행성 형성</b><br>원시 태양 중심부에서 수소 핵융합 반응이 시작되면서 스스로 빛나는 완벽한 태양이 되었다. 미행성체들이 중심을 향해 충돌하고 합쳐져 매끄러운 구형의 원시 행성이 형성되었다. </b><br> 행성은 원시 원반에서 형성되었기 때문에 비슷한 공전 궤도에서 같은 방향으로 공전한다."
+    ];
+
+    function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function initStars() {
+        stars = [];
+        for (let i = 0; i < 400; i++) {
+            stars.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                size: Math.random() * 1.5,
+                alpha: Math.random() * 0.8 + 0.2
+            });
+        }
+    }
+
+    class Particle {
+        constructor() {
+            this.angle = Math.random() * Math.PI * 2;
+            
+            // 2단계를 위한 균일하고 꽉 찬 원반 반경 설정
+            this.diskRadius = Math.random() * 700 + 30;
+
+            const rand = Math.random();
+            if (rand < 0.3) {
+                this.targetRadius = Math.random() * 40; 
+            } else if (rand < 0.9) {
+                const targetOrbit = planetOrbits[Math.floor(Math.random() * planetOrbits.length)];
+                this.targetRadius = targetOrbit.distance + (Math.random() * 20 - 10); 
+            } else {
+                this.targetRadius = (Math.random() * 300) + 750;
+            }
+
+            this.initialRadius = this.diskRadius + (Math.random() * width * 0.7) + 150; 
+            this.radius = this.initialRadius;
+            this.baseYRadius = 1.0; 
+            this.x = 0;
+            this.y = 0;
+            this.size = Math.random() * 1.8 + 0.8;
+            this.speed = (Math.random() * 0.001) - 0.0005; 
+            
+            const cRand = Math.random();
+            let r, g, b;
+            if (cRand < 0.5) {
+                r = Math.floor(200 + Math.random() * 55);
+                g = Math.floor(100 + Math.random() * 80);
+                b = Math.floor(50 + Math.random() * 50);
+            } else if (cRand < 0.8) {
+                r = Math.floor(150 + Math.random() * 50);
+                g = Math.floor(70 + Math.random() * 40);
+                b = Math.floor(30 + Math.random() * 30);
+            } else {
+                r = Math.floor(100 + Math.random() * 40);
+                g = Math.floor(50 + Math.random() * 30);
+                b = Math.floor(20 + Math.random() * 20);
+            }
+            
+            this.color = `rgba(${r}, ${g}, ${b}, ${Math.random() * 0.6 + 0.2})`;
+            this.active = true;
+        }
+
+        update() {
+            if (!this.active) return;
+            
+            if (stage === 1) {
+                // 1단계: 넓게 퍼진 상태에서 서서히 원반 형태로 수축
+                this.radius -= (this.radius - this.diskRadius) * 0.003;
+            } else if (stage === 2) {
+                // 2단계: 고리가 없는 꽉 찬 균일한 원시 원반 형성
+                this.radius -= (this.radius - this.diskRadius) * 0.02;
+            } else if (stage >= 3) {
+                // 3단계: 원반에 빈 공간(간극)이 생기며 고리(특정 궤도)로 밀집
+                this.radius -= (this.radius - this.targetRadius) * 0.05;
+            }
+
+            if (stage >= 2) {
+                let orbitalSpeed = 15 / (Math.max(this.radius, 20));
+                this.speed += (orbitalSpeed - this.speed) * 0.02;
+                if (this.baseYRadius > 0.20) this.baseYRadius -= 0.005;
+            }
+            this.angle += this.speed;
+            this.x = width / 2 + Math.cos(this.angle) * this.radius;
+            this.y = height / 2 + Math.sin(this.angle) * (this.radius * this.baseYRadius);
+
+            if (stage === 4) {
+                planets.forEach(planet => {
+                    let angleDiff = Math.abs(this.angle % (Math.PI*2) - planet.angle % (Math.PI*2));
+                    if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+                    let distRadius = Math.abs(this.radius - planet.distance);
+                    if (distRadius < 25 && angleDiff < 0.25) {
+                        this.size *= 0.8; 
+                        if (this.size < 0.2) this.active = false;
+                    }
+                });
+            }
+        }
+        draw() {
+            if (!this.active) return;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+        }
+    }
+
+    class Planet {
+        constructor(orbitData) {
+            this.distance = orbitData.distance;
+            this.angle = Math.random() * Math.PI * 2;
+            this.size = 0; 
+            this.finalSize = orbitData.finalSize;
+            this.color = orbitData.color;
+            this.speed = orbitData.speed;
+            this.massAccumulated = 0; 
+            
+            this.planetesimals = [];
+            // 미행성체 개수 증가 및 각자의 상대적 속도 부여
+            for(let i=0; i<15; i++) {
+                this.planetesimals.push({
+                    angleOffset: (Math.random() * Math.PI * 2),
+                    distOffset: (Math.random() * 20 - 10),
+                    baseSize: Math.random() * 1.5 + 0.8,
+                    size: 0.1, // 초기엔 아주 작게 시작
+                    speedOffset: (Math.random() * 0.02) - 0.01
+                });
+            }
+        }
+        update() {
+            this.angle += this.speed;
+            
+            if (stage === 3) {
+                // 3단계: 미행성체들이 형성되어 서로 부딪히며 조금씩 커지는 과정
+                this.planetesimals.forEach(p => {
+                    p.angleOffset += p.speedOffset; // 궤도상에서 이리저리 움직임
+                    if (p.size < p.baseSize) {
+                        p.size += 0.02; // 먼지를 흡수하며 미행성체가 뚜렷해짐
+                    }
+                    p.distOffset *= 0.995; // 궤도 폭이 줄어들며 서로 뭉치는 느낌
+                });
+            } else if (stage === 4) {
+                // 4단계: 수많은 미행성체들이 완벽한 구형의 행성으로 완전히 병합됨
+                if (this.massAccumulated < 1) {
+                    this.massAccumulated += 0.005; 
+                    this.size = 0.5 + (this.finalSize - 0.5) * Math.pow(this.massAccumulated, 1.2);
+                }
+                // 미행성체들이 중심(행성의 핵)으로 빨려 들어오는 연출
+                this.planetesimals.forEach(p => {
+                    p.angleOffset *= 0.92; // 각도 차이 좁히기
+                    p.distOffset *= 0.92;  // 거리 차이 좁히기
+                    if (this.massAccumulated > 0.25) p.size *= 0.85; // 핵에 흡수됨
+                });
+            } else {
+                this.size = 0; 
+                this.massAccumulated = 0;
+                this.planetesimals.forEach(p => p.size = 0.1);
+            }
+        }
+        draw() {
+            // 3단계 및 4단계 초반: 미행성체 렌더링
+            if (stage === 3 || (stage === 4 && this.massAccumulated < 1)) {
+                this.planetesimals.forEach(p => {
+                    if (p.size < 0.1) return;
+                    let a = this.angle + p.angleOffset;
+                    let d = this.distance + p.distOffset;
+                    let px = width / 2 + Math.cos(a) * d;
+                    let py = height / 2 + Math.sin(a) * (d * 0.20);
+                    ctx.beginPath();
+                    ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 200, 150, 0.8)';
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = '#ffaa00';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+            }
+            // 4단계: 완벽하게 뭉친 원시 행성 렌더링
+            if (stage === 4 && this.size > 0.5) {
+                let px = width / 2 + Math.cos(this.angle) * this.distance;
+                let py = height / 2 + Math.sin(this.angle) * (this.distance * 0.20);
+                ctx.beginPath();
+                ctx.arc(px, py, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = this.size * 1.2;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                if (this.size > 2) {
+                    ctx.beginPath();
+                    ctx.arc(px - this.size*0.3, py - this.size*0.3, this.size*0.2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    function updateActiveButton() {
+        stageBtns.forEach(btn => {
+            if(parseInt(btn.dataset.stage) === stage) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    function changeStage(newStage, isManual = false) {
+        if(stage === newStage && !isManual) return;
+        
+        stage = newStage;
+        updateActiveButton();
+        
+        descEl.style.opacity = 0;
+        setTimeout(() => {
+            descEl.innerHTML = stageDescriptions[stage];
+            descEl.style.opacity = 1;
+        }, 300);
+
+        if(isManual) {
+            if(stage === 1) { timer = 0; }
+            if(stage === 2) { timer = 251; }
+            if(stage === 3) { timer = 551; }
+            if(stage === 4) { timer = 851; }
+            
+            particles.forEach(p => {
+                if(stage === 1) {
+                    p.radius = p.initialRadius;
+                    p.baseYRadius = 1.0;
+                    p.active = true;
+                } else if(stage === 2) {
+                    p.radius = p.diskRadius; 
+                    p.baseYRadius = 0.20; 
+                    p.active = true;
+                } else if(stage >= 3) {
+                    p.radius = p.targetRadius; 
+                    p.baseYRadius = 0.20; 
+                    p.active = true;
+                }
+                
+                if(stage < 4) {
+                    p.active = true; 
+                    p.size = Math.random() * 1.8 + 0.8;
+                }
+            });
+
+            if (stage === 3) {
+                planets.forEach(p => {
+                    p.massAccumulated = 0;
+                    p.planetesimals.forEach(pl => pl.size = pl.baseSize);
+                });
+            } else if (stage === 4) {
+                planets.forEach(p => {
+                    p.massAccumulated = 0.5;
+                    p.planetesimals.forEach(pl => pl.size = 0);
+                });
+            } else {
+                planets.forEach(p => p.massAccumulated = 0);
+            }
+        }
+    }
+
+    function initSimulation() {
+        initStars();
+        particles = [];
+        for (let i = 0; i < 4500; i++) {
+            particles.push(new Particle());
+        }
+
+        planets = planetOrbits.map(orbit => new Planet(orbit));
+
+        timer = 0;
+        isRunning = true;
+        
+        mainBtn.innerHTML = '<span class="full-text">↺ 처음부터 다시 시작</span><span class="short-text">↺</span>';
+        stageControls.classList.remove('hidden');
+        changeStage(1, true);
+        
+        if (animFrame) cancelAnimationFrame(animFrame);
+        animate();
+    }
+
+    function animate() {
+        if(!isRunning) return;
+
+        ctx.fillStyle = 'rgba(2, 1, 0, 0.35)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = 'white';
+        stars.forEach(star => {
+            ctx.globalAlpha = star.alpha * (0.6 + Math.sin(Date.now() * 0.001 + star.x) * 0.4);
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1.0;
+
+        timer++;
+
+        if (stage === 1 && timer > 250) changeStage(2);
+        else if (stage === 2 && timer > 550) changeStage(3);
+        else if (stage === 3 && timer > 850) changeStage(4);
+
+        if (stage === 1 && timer < 150) {
+            let shockwaveRadius = (timer / 150) * width * 1.2;
+            let alpha = Math.max(0, 1 - (timer / 150));
+            ctx.beginPath();
+            ctx.arc(0, height/2, shockwaveRadius, 0, Math.PI * 2);
+            ctx.lineWidth = 60;
+            ctx.strokeStyle = `rgba(255, 180, 100, ${alpha * 0.3})`;
+            ctx.stroke();
+        }
+
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+
+        // ==========================================
+        // 🌟 태양 본체 크기 수축 보정 및 빛 고정
+        // ==========================================
+        if (stage >= 2) {
+            let sunRadius = 0, glowRadius = 0;
+            let coreColor = '', glowColor1 = '', glowColor2 = '';
+
+            if (stage === 2) {
+                // 2단계: 크기 60에서 30으로 계속 작아짐 (단차 제거)
+                let p = Math.min((timer - 251) / 300, 1);
+                sunRadius = 60 - (p * 30); 
+                glowRadius = sunRadius * 1.5;
+                
+                let alpha = Math.min(p * 0.8 + 0.2, 1);
+                coreColor = `rgba(255, 100, 40, ${alpha})`;
+                
+                let irregularity = (1 - p) * 30; 
+                ctx.fillStyle = coreColor;
+                for (let i = 0; i < 5; i++) {
+                    let offsetX = Math.cos(i * Math.PI * 2 / 5 + timer * 0.04) * irregularity;
+                    let offsetY = Math.sin(i * Math.PI * 2 / 5 + timer * 0.04) * (irregularity * 0.3);
+                    ctx.beginPath();
+                    ctx.arc(width/2 + offsetX, height/2 + offsetY, sunRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (stage >= 3) {
+                // 3단계~4단계: 본체 크기 완전 고정 (30) / 빛(Glow) 크기 완전 고정
+                sunRadius = 30; 
+                glowRadius = sunRadius * 5 + Math.sin(timer * 0.1) * 5; 
+                
+                coreColor = `rgb(255, 255, 255)`; 
+                glowColor1 = `rgba(255, 200, 100, 0.7)`;
+                glowColor2 = `rgba(255, 100, 0, 0)`;
+
+                let grad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, glowRadius);
+                grad.addColorStop(0, coreColor);
+                grad.addColorStop(0.3, glowColor1);
+                grad.addColorStop(1, glowColor2);
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(width/2, height/2, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(width/2, height/2, sunRadius, 0, Math.PI * 2);
+                ctx.fillStyle = coreColor;
+                ctx.shadowBlur = 30 + Math.random() * 10;
+                ctx.shadowColor = '#ffcc00';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        if (stage >= 3) {
+            planets.forEach(planet => {
+                planet.update();
+                planet.draw();
+            });
+        }
+
+        animFrame = requestAnimationFrame(animate);
+    }
+
+    initStars();
+    ctx.fillStyle = 'rgba(2, 1, 0, 1)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'white';
+    stars.forEach(star => {
+        ctx.globalAlpha = star.alpha;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    mainBtn.addEventListener('click', initSimulation);
+    stageBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const targetStage = parseInt(e.currentTarget.dataset.stage);
+            if(!isRunning) initSimulation(); 
+            changeStage(targetStage, true);
+        });
+    });
+
+</script>
+</body>
+</html>
