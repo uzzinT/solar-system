@@ -14,7 +14,6 @@
             color: #ffffff;
             font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
             overflow: hidden;
-            /* 전체 화면 선택 방지 (드래그 시 텍스트 파랗게 칠해지는 것 방지) */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -39,7 +38,6 @@
             z-index: 1;
         }
 
-        /* UI 패널 공통 스타일 */
         #ui-layer {
             position: absolute;
             top: 40px;
@@ -55,7 +53,6 @@
             transition: width 0.3s, background-color 0.3s;
         }
 
-        /* --- 상단 드래그 핸들 및 조절 버튼 --- */
         #drag-handle {
             display: flex;
             justify-content: space-between;
@@ -99,7 +96,6 @@
             color: white;
         }
 
-        /* --- 텍스트 및 버튼 레이아웃 --- */
         #description {
             font-size: 14.5px;
             line-height: 1.6;
@@ -113,6 +109,11 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+        
+        .control-panel {
+            display: flex;
+            gap: 8px;
         }
 
         .stage-btns {
@@ -150,52 +151,102 @@
             box-shadow: 0 0 15px rgba(255, 150, 50, 0.6);
         }
 
-        #start-restart-btn {
-            background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+        /* 컨트롤 패널(일시정지/재생) */
+        #play-pause-btn {
+            flex: 1;
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
             color: white;
             border: none;
-            font-size: 16px;
-            padding: 14px;
-            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.4);
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        #start-restart-btn:hover {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            filter: brightness(1.1);
+        /* 속도 제어 슬라이더 */
+        .speed-slider-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 0 12px;
+            border: 1px solid rgba(255,150,50,0.3);
+            flex: 1;
+            height: 48px;
+            box-sizing: border-box;
         }
 
-        /* 텍스트 토글용 */
+        #speed-label {
+            font-size: 11px;
+            color: #ddd;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        #speed-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 0;
+        }
+
+        #speed-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,150,50,0.3);
+            border-radius: 2px;
+        }
+
+        #speed-slider::-webkit-slider-thumb {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #ffaa55;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4px;
+            box-shadow: 0 0 5px rgba(255, 170, 85, 0.8);
+        }
+
+        #start-restart-btn {
+            background: rgba(50, 50, 60, 0.5);
+            color: #ddd;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 14px;
+            padding: 10px;
+        }
+
         .short-text { display: none; }
 
-        /* =========================================
-           UI 상태 변화 (기본 Full / 최소화 Min / 접기 Folded)
-           ========================================= */
-        
-        /* 1. 기본 (Full) */
+        /* UI 축소/확장 모드 */
         .state-full { width: 420px; }
 
-        /* 2. 버튼 축소 (Min) */
         .state-min { width: 420px; }
         .state-min #description { min-height: auto; }
         .state-min .full-text { display: none; }
         .state-min .short-text { display: inline-block; font-size: 18px; }
+        .state-min .speed-slider-container { display: none; } /* 축소 시 속도제어 숨김 */
         
         .state-min .btn-group {
             flex-direction: row;
             justify-content: center;
             align-items: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
+        .state-min .control-panel { margin-bottom: 0; }
         .state-min .stage-btns {
             display: flex;
             gap: 8px;
         }
-        .state-min #start-restart-btn, .state-min .stage-btn {
+        .state-min #start-restart-btn, .state-min .stage-btn, .state-min #play-pause-btn {
             width: 44px; height: 44px; padding: 0; border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
         }
 
-        /* 3. 완전 접기 (Folded) */
         .state-folded { width: 280px; }
         .state-folded #ui-content { display: none; }
         .state-folded #drag-handle { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
@@ -222,18 +273,25 @@
             <div id="description">교과서 시각자료에 맞춘 태양계 형성 시뮬레이션입니다.<br>버튼을 눌러 시작하세요.</div>
             
             <div class="btn-group">
-                <button id="start-restart-btn">
-                    <span class="full-text">▶ 시뮬레이션 시작</span>
-                    <span class="short-text">▶</span>
-                </button>
-                
+                <!-- 재생/일시정지 & 속도제어 -->
+                <div class="control-panel hidden" id="main-controls">
+                    <button id="play-pause-btn">
+                        <span class="full-text">⏸ 일시정지</span>
+                        <span class="short-text">⏸</span>
+                    </button>
+                    <div class="speed-slider-container">
+                        <label for="speed-slider" id="speed-label">배속: 1.0x</label>
+                        <input type="range" id="speed-slider" min="0.1" max="3.0" step="0.1" value="1.0">
+                    </div>
+                </div>
+
                 <div id="stage-controls" class="stage-btns hidden">
                     <button class="stage-btn" data-stage="1">
                         <span class="full-text">1. 태양계 성운 형성</span>
                         <span class="short-text">1</span>
                     </button>
                     <button class="stage-btn" data-stage="2">
-                        <span class="full-text">2. 원시 태양과 원시 원반 형성</span>
+                        <span class="full-text">2. 원시 태양과 원반</span>
                         <span class="short-text">2</span>
                     </button>
                     <button class="stage-btn" data-stage="3">
@@ -245,6 +303,11 @@
                         <span class="short-text">4</span>
                     </button>
                 </div>
+
+                <button id="start-restart-btn">
+                    <span class="full-text">▶ 시뮬레이션 시작</span>
+                    <span class="short-text">▶</span>
+                </button>
             </div>
         </div>
     </div>
@@ -303,13 +366,23 @@
     document.querySelector('.full-btn').addEventListener('click', () => uiLayer.className = 'state-full');
 
     // ==========================================
-    // 시뮬레이션 애니메이션 로직
+    // 시뮬레이션 제어 변수 (배속, 자동진행)
+    // ==========================================
+    let simSpeed = 1.0;
+    let isPaused = false;
+    let autoAdvance = true;
+    let globalTimer = 0; // 시각적 효과(Glow 등)를 위한 절대 타이머
+
+    // ==========================================
+    // 애니메이션 코어 로직
     // ==========================================
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     const descEl = document.getElementById('description');
     const mainBtn = document.getElementById('start-restart-btn');
+    const playPauseBtn = document.getElementById('play-pause-btn');
     const stageControls = document.getElementById('stage-controls');
+    const mainControls = document.getElementById('main-controls');
     const stageBtns = document.querySelectorAll('.stage-btn');
 
     let width, height;
@@ -364,8 +437,6 @@
     class Particle {
         constructor() {
             this.angle = Math.random() * Math.PI * 2;
-            
-            // 2단계를 위한 균일하고 꽉 찬 원반 반경 설정
             this.diskRadius = Math.random() * 700 + 30;
 
             const rand = Math.random();
@@ -401,7 +472,6 @@
                 g = Math.floor(50 + Math.random() * 30);
                 b = Math.floor(20 + Math.random() * 20);
             }
-            
             this.color = `rgba(${r}, ${g}, ${b}, ${Math.random() * 0.6 + 0.2})`;
             this.active = true;
         }
@@ -409,23 +479,21 @@
         update() {
             if (!this.active) return;
             
+            // 배속(simSpeed) 적용
             if (stage === 1) {
-                // 1단계: 넓게 퍼진 상태에서 서서히 원반 형태로 수축
-                this.radius -= (this.radius - this.diskRadius) * 0.003;
+                this.radius -= (this.radius - this.diskRadius) * 0.003 * simSpeed;
             } else if (stage === 2) {
-                // 2단계: 고리가 없는 꽉 찬 균일한 원시 원반 형성
-                this.radius -= (this.radius - this.diskRadius) * 0.02;
+                this.radius -= (this.radius - this.diskRadius) * 0.02 * simSpeed;
             } else if (stage >= 3) {
-                // 3단계: 원반에 빈 공간(간극)이 생기며 고리(특정 궤도)로 밀집
-                this.radius -= (this.radius - this.targetRadius) * 0.05;
+                this.radius -= (this.radius - this.targetRadius) * 0.05 * simSpeed;
             }
 
             if (stage >= 2) {
                 let orbitalSpeed = 15 / (Math.max(this.radius, 20));
-                this.speed += (orbitalSpeed - this.speed) * 0.02;
-                if (this.baseYRadius > 0.20) this.baseYRadius -= 0.005;
+                this.speed += (orbitalSpeed - this.speed) * 0.02 * simSpeed;
+                if (this.baseYRadius > 0.20) this.baseYRadius -= 0.005 * simSpeed;
             }
-            this.angle += this.speed;
+            this.angle += this.speed * simSpeed;
             this.x = width / 2 + Math.cos(this.angle) * this.radius;
             this.y = height / 2 + Math.sin(this.angle) * (this.radius * this.baseYRadius);
 
@@ -435,7 +503,7 @@
                     if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
                     let distRadius = Math.abs(this.radius - planet.distance);
                     if (distRadius < 25 && angleDiff < 0.25) {
-                        this.size *= 0.8; 
+                        this.size -= (this.size * 0.2 * simSpeed); 
                         if (this.size < 0.2) this.active = false;
                     }
                 });
@@ -461,40 +529,36 @@
             this.massAccumulated = 0; 
             
             this.planetesimals = [];
-            // 미행성체 개수 증가 및 각자의 상대적 속도 부여
             for(let i=0; i<15; i++) {
                 this.planetesimals.push({
                     angleOffset: (Math.random() * Math.PI * 2),
                     distOffset: (Math.random() * 20 - 10),
                     baseSize: Math.random() * 1.5 + 0.8,
-                    size: 0.1, // 초기엔 아주 작게 시작
+                    size: 0.1, 
                     speedOffset: (Math.random() * 0.02) - 0.01
                 });
             }
         }
         update() {
-            this.angle += this.speed;
+            this.angle += this.speed * simSpeed;
             
             if (stage === 3) {
-                // 3단계: 미행성체들이 형성되어 서로 부딪히며 조금씩 커지는 과정
                 this.planetesimals.forEach(p => {
-                    p.angleOffset += p.speedOffset; // 궤도상에서 이리저리 움직임
+                    p.angleOffset += p.speedOffset * simSpeed; 
                     if (p.size < p.baseSize) {
-                        p.size += 0.02; // 먼지를 흡수하며 미행성체가 뚜렷해짐
+                        p.size += 0.02 * simSpeed; 
                     }
-                    p.distOffset *= 0.995; // 궤도 폭이 줄어들며 서로 뭉치는 느낌
+                    p.distOffset -= p.distOffset * 0.005 * simSpeed; 
                 });
             } else if (stage === 4) {
-                // 4단계: 수많은 미행성체들이 완벽한 구형의 행성으로 완전히 병합됨
                 if (this.massAccumulated < 1) {
-                    this.massAccumulated += 0.005; 
+                    this.massAccumulated += 0.005 * simSpeed; 
                     this.size = 0.5 + (this.finalSize - 0.5) * Math.pow(this.massAccumulated, 1.2);
                 }
-                // 미행성체들이 중심(행성의 핵)으로 빨려 들어오는 연출
                 this.planetesimals.forEach(p => {
-                    p.angleOffset *= 0.92; // 각도 차이 좁히기
-                    p.distOffset *= 0.92;  // 거리 차이 좁히기
-                    if (this.massAccumulated > 0.25) p.size *= 0.85; // 핵에 흡수됨
+                    p.angleOffset -= p.angleOffset * 0.08 * simSpeed; 
+                    p.distOffset -= p.distOffset * 0.08 * simSpeed;  
+                    if (this.massAccumulated > 0.25) p.size -= p.size * 0.15 * simSpeed; 
                 });
             } else {
                 this.size = 0; 
@@ -503,7 +567,6 @@
             }
         }
         draw() {
-            // 3단계 및 4단계 초반: 미행성체 렌더링
             if (stage === 3 || (stage === 4 && this.massAccumulated < 1)) {
                 this.planetesimals.forEach(p => {
                     if (p.size < 0.1) return;
@@ -520,7 +583,6 @@
                     ctx.shadowBlur = 0;
                 });
             }
-            // 4단계: 완벽하게 뭉친 원시 행성 렌더링
             if (stage === 4 && this.size > 0.5) {
                 let px = width / 2 + Math.cos(this.angle) * this.distance;
                 let py = height / 2 + Math.sin(this.angle) * (this.distance * 0.20);
@@ -538,6 +600,19 @@
                     ctx.fill();
                 }
             }
+        }
+    }
+
+    function updatePlayPauseUI(forceAutoAdvancePlay = false) {
+        if (isPaused) {
+            playPauseBtn.innerHTML = '<span class="full-text">▶ 재생</span><span class="short-text">▶</span>';
+            playPauseBtn.style.background = 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)';
+        } else if (!autoAdvance || forceAutoAdvancePlay) {
+            playPauseBtn.innerHTML = '<span class="full-text">▶ 자동 진행 재개</span><span class="short-text">▶</span>';
+            playPauseBtn.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)';
+        } else {
+            playPauseBtn.innerHTML = '<span class="full-text">⏸ 일시정지</span><span class="short-text">⏸</span>';
+            playPauseBtn.style.background = 'linear-gradient(135deg, #e67e22 0%, #d35400 100%)';
         }
     }
 
@@ -564,6 +639,11 @@
         }, 300);
 
         if(isManual) {
+            // 수동으로 누르면 자동 진행 멈춤
+            autoAdvance = false;
+            isPaused = false;
+            updatePlayPauseUI();
+
             if(stage === 1) { timer = 0; }
             if(stage === 2) { timer = 251; }
             if(stage === 3) { timer = 551; }
@@ -583,7 +663,6 @@
                     p.baseYRadius = 0.20; 
                     p.active = true;
                 }
-                
                 if(stage < 4) {
                     p.active = true; 
                     p.size = Math.random() * 1.8 + 0.8;
@@ -612,15 +691,22 @@
         for (let i = 0; i < 4500; i++) {
             particles.push(new Particle());
         }
-
         planets = planetOrbits.map(orbit => new Planet(orbit));
 
         timer = 0;
+        globalTimer = 0;
         isRunning = true;
+        isPaused = false;
+        autoAdvance = true;
         
         mainBtn.innerHTML = '<span class="full-text">↺ 처음부터 다시 시작</span><span class="short-text">↺</span>';
         stageControls.classList.remove('hidden');
+        mainControls.classList.remove('hidden');
+        
+        updatePlayPauseUI();
         changeStage(1, true);
+        autoAdvance = true; // 수동으로 불렸지만 처음부터이므로 재정의
+        updatePlayPauseUI();
         
         if (animFrame) cancelAnimationFrame(animFrame);
         animate();
@@ -629,9 +715,11 @@
     function animate() {
         if(!isRunning) return;
 
+        // 배경 처리
         ctx.fillStyle = 'rgba(2, 1, 0, 0.35)';
         ctx.fillRect(0, 0, width, height);
 
+        // 정지 상태라도 별은 반짝이게 둠 (취향에 따라)
         ctx.fillStyle = 'white';
         stars.forEach(star => {
             ctx.globalAlpha = star.alpha * (0.6 + Math.sin(Date.now() * 0.001 + star.x) * 0.4);
@@ -641,12 +729,31 @@
         });
         ctx.globalAlpha = 1.0;
 
-        timer++;
+        if (!isPaused) {
+            timer += simSpeed;
+            globalTimer += simSpeed;
 
-        if (stage === 1 && timer > 250) changeStage(2);
-        else if (stage === 2 && timer > 550) changeStage(3);
-        else if (stage === 3 && timer > 850) changeStage(4);
+            // 자동 진행 허용 시에만 단계 넘어감
+            if (autoAdvance) {
+                if (stage === 1 && timer > 250) changeStage(2);
+                else if (stage === 2 && timer > 550) changeStage(3);
+                else if (stage === 3 && timer > 850) changeStage(4);
+            } else {
+                // 자동 진행이 꺼져있으면, 해당 단계의 완성 상태 타이머에서 멈춤
+                if (stage === 1 && timer >= 250) timer = 250;
+                else if (stage === 2 && timer >= 550) timer = 550;
+                else if (stage === 3 && timer >= 850) timer = 850;
+            }
 
+            particles.forEach(p => p.update());
+            if (stage >= 3) planets.forEach(p => p.update());
+        }
+
+        // ========================
+        // 그리기 (Draw) 로직
+        // ========================
+
+        // 1단계 충격파
         if (stage === 1 && timer < 150) {
             let shockwaveRadius = (timer / 150) * width * 1.2;
             let alpha = Math.max(0, 1 - (timer / 150));
@@ -657,20 +764,14 @@
             ctx.stroke();
         }
 
-        particles.forEach(p => {
-            p.update();
-            p.draw();
-        });
+        particles.forEach(p => p.draw());
 
-        // ==========================================
-        // 🌟 태양 본체 크기 수축 보정 및 빛 고정
-        // ==========================================
+        // 중심 태양 렌더링
         if (stage >= 2) {
             let sunRadius = 0, glowRadius = 0;
             let coreColor = '', glowColor1 = '', glowColor2 = '';
 
             if (stage === 2) {
-                // 2단계: 크기 60에서 30으로 계속 작아짐 (단차 제거)
                 let p = Math.min((timer - 251) / 300, 1);
                 sunRadius = 60 - (p * 30); 
                 glowRadius = sunRadius * 1.5;
@@ -680,17 +781,36 @@
                 
                 let irregularity = (1 - p) * 30; 
                 ctx.fillStyle = coreColor;
+                // 글로벌 타이머를 써서 일시정지시 소용돌이도 멈추게 함
                 for (let i = 0; i < 5; i++) {
-                    let offsetX = Math.cos(i * Math.PI * 2 / 5 + timer * 0.04) * irregularity;
-                    let offsetY = Math.sin(i * Math.PI * 2 / 5 + timer * 0.04) * (irregularity * 0.3);
+                    let offsetX = Math.cos(i * Math.PI * 2 / 5 + globalTimer * 0.04) * irregularity;
+                    let offsetY = Math.sin(i * Math.PI * 2 / 5 + globalTimer * 0.04) * (irregularity * 0.3);
                     ctx.beginPath();
                     ctx.arc(width/2 + offsetX, height/2 + offsetY, sunRadius, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            } else if (stage >= 3) {
-                // 3단계~4단계: 본체 크기 완전 고정 (30) / 빛(Glow) 크기 완전 고정
+            } else if (stage === 3) {
+                let p = Math.min((timer - 251) / 300, 1);
+                sunRadius = 60 - (p * 30); 
+                glowRadius = sunRadius * 1.5;
+                
+                let alpha = Math.min(p * 0.8 + 0.2, 1);
+                coreColor = `rgba(255, 100, 40, ${alpha})`;
+                
+                let irregularity = (1 - p) * 30; 
+                ctx.fillStyle = coreColor;
+                // 글로벌 타이머를 써서 일시정지시 소용돌이도 멈추게 함
+                for (let i = 0; i < 5; i++) {
+                    let offsetX = Math.cos(i * Math.PI * 2 / 5 + globalTimer * 0.04) * irregularity;
+                    let offsetY = Math.sin(i * Math.PI * 2 / 5 + globalTimer * 0.04) * (irregularity * 0.3);
+                    ctx.beginPath();
+                    ctx.arc(width/2 + offsetX, height/2 + offsetY, sunRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (stage >= 4) {
                 sunRadius = 30; 
-                glowRadius = sunRadius * 5 + Math.sin(timer * 0.1) * 5; 
+                // 글로벌 타이머를 써서 일시정지시 빛 떨림도 멈춤
+                glowRadius = sunRadius * 5 + Math.sin(globalTimer * 0.1) * 5; 
                 
                 coreColor = `rgb(255, 255, 255)`; 
                 glowColor1 = `rgba(255, 200, 100, 0.7)`;
@@ -717,15 +837,13 @@
         }
 
         if (stage >= 3) {
-            planets.forEach(planet => {
-                planet.update();
-                planet.draw();
-            });
+            planets.forEach(p => p.draw());
         }
 
         animFrame = requestAnimationFrame(animate);
     }
 
+    // --- 이벤트 리스너 세팅 ---
     initStars();
     ctx.fillStyle = 'rgba(2, 1, 0, 1)';
     ctx.fillRect(0, 0, width, height);
@@ -739,12 +857,35 @@
     ctx.globalAlpha = 1.0;
 
     mainBtn.addEventListener('click', initSimulation);
+    
     stageBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetStage = parseInt(e.currentTarget.dataset.stage);
             if(!isRunning) initSimulation(); 
             changeStage(targetStage, true);
         });
+    });
+
+    // 재생/일시정지 제어
+    playPauseBtn.addEventListener('click', () => {
+        if (isPaused || !autoAdvance) {
+            // 정지 또는 수동 고정 상태에서 누르면 -> 재생 + 자동 진행 활성화
+            isPaused = false;
+            autoAdvance = true;
+        } else {
+            // 재생 중일 때 누르면 -> 완전 정지
+            isPaused = true;
+        }
+        updatePlayPauseUI();
+    });
+
+    // 속도 제어 (슬라이더)
+    const speedSlider = document.getElementById('speed-slider');
+    const speedLabel = document.getElementById('speed-label');
+
+    speedSlider.addEventListener('input', (e) => {
+        simSpeed = parseFloat(e.target.value);
+        speedLabel.textContent = `배속: ${simSpeed.toFixed(1)}x`;
     });
 
 </script>
